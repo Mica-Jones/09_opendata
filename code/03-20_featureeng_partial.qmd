@@ -168,9 +168,15 @@ Now, what if we wanted to have month as part of the column name instead?
 
 ```{r fe_month_sum_wide}
 fe_month_sum_wide <- fe_month_sum %>%
-  pivot_longer()
+  pivot_longer(cols = mean_dayl.s:sum_prcp.mm) %>%
+  mutate(varname = paste0(name, "_", month_abb)) %>%
+  dplyr::select(-name,-month_abb) %>% #this removes these columns; if left in, they cause an issue with pivot wider where some cells cannot pull data correctly, resulting in a data frame with way too many rows and many empty cells
+  pivot_wider(names_from = varname, 
+              values_from = value) %>%
   
   # Rounding to one decimal point
+  mutate(across(c(3:75), ~round(., 1)))
+
 
 fe_month_sum_wide  
 ```
@@ -187,13 +193,49 @@ Let's make a ridge plot to visualize the distribution of one variable over month
 #install.packages("ggridges")
 library(ggridges)
 
+ggplot(data = fe_month_sum,
+       aes(x = mean_tmax.c,
+           y = month_abb,
+           fill = stat(x)
+           )) +
+  geom_density_ridges_gradient(scale = 3,
+                               rel_min_height = 0.01) +
+  scale_fill_viridis_c(option = "C") +
+  theme(legend.position = "none")
+  
 
 ```
 
 Now let's do that for all variables.  
 ```{r}
-finalplots 
-  
+finalplots <- fe_month_sum %>%
+  pivot_longer(mean_dayl.s:sum_prcp.mm) %>%
+  group_by(name) %>%
+  nest() %>%
+  mutate(plot = map2(data, name, 
+                     ~ggplot(data = .x,
+                       aes(x = value,
+                           y = month_abb,
+                           fill = stat(x)
+                           )) +
+                       geom_density_ridges_gradient(scale = 3,
+                               rel_min_height = 0.01) +
+                       scale_fill_viridis_c(option = "C") +
+                       theme(legend.position = "none") +
+                       labs(x = .y)
+                     ))
+#ggplot(
+#       aes(x = value,
+#           y = month_abb,
+#           fill = stat(x)
+#           )) +
+#  geom_density_ridges_gradient(scale = 3,
+#                               rel_min_height = 0.01) +
+#  scale_fill_viridis_c(option = "C") +
+#  theme(legend.position = "none") 
+#  facet_wrap(~name, scales = "free") # facet wrap applies single scale to all plots, ruins aesthetic
+
+finalplots$plot[[1]]
   
 ```
 
